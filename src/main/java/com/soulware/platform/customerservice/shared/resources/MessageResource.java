@@ -1,4 +1,4 @@
-package com.paxtech.utime.platform.shared.interfaces.rest.resources;
+package com.soulware.platform.customerservice.shared.resources;
 
 public record MessageResource(String message) {
 }
