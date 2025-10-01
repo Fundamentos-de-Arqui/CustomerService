@@ -1,4 +1,4 @@
-package com.paxtech.utime.platform.shared.domain.model.aggregates;
+package com.soulware.platform.customerservice.shared.model.aggregates;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;

@@ -1,4 +1,4 @@
-package com.paxtech.utime.platform.shared.domain.model.entities;
+package com.soulware.platform.customerservice.shared.model.entities;
 
 import jakarta.persistence.*;
 import lombok.Getter;
