@@ -1,6 +1,6 @@
 package com.soulware.platform.customerservice.cs.application.internal.commandservices;
 
-import com.soulware.platform.customerservice.cs.domain.model.aggregates.Patient;
+import com.soulware.platform.customerservice.cs.domain.model.aggregates.PatientProfile;
 import com.soulware.platform.customerservice.cs.domain.model.commands.CreatePatientCommand;
 import com.soulware.platform.customerservice.cs.domain.services.PatientCommandService;
 import com.soulware.platform.customerservice.cs.infrastructure.persistence.jpa.repositories.PatientRepository;
@@ -19,7 +19,7 @@ public class PatientCommandServiceImpl implements PatientCommandService {
     }
 
     @Override
-    public Optional<Patient> handle(CreatePatientCommand command) {
-        return Optional.of(patientRepository.save(new Patient(command)));
+    public Optional<PatientProfile> handle(CreatePatientCommand command) {
+        return Optional.of(patientRepository.save(new PatientProfile(command)));
     }
 }

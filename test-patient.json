@@ -1,0 +1,11 @@
+{
+  "firstNames": "Test",
+  "paternalSurname": "User",
+  "maternalSurname": "Test",
+  "documentType": "DNI",
+  "documentNumber": "12345678",
+  "phone": "123456789",
+  "email": "test@test.com",
+  "birthDate": "1990-01-01",
+  "receiptType": "BILL"
+}

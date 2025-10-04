@@ -1,7 +1,8 @@
 package com.soulware.platform.customerservice.cs.application.internal.services;
 
 import com.soulware.platform.customerservice.cs.domain.model.valueobjects.DocumentType;
-import com.soulware.platform.customerservice.cs.interfaces.soap.resources.CreatePatientResource;
+import com.soulware.platform.customerservice.cs.domain.model.commands.CreatePatientCommand;
+import com.soulware.platform.customerservice.cs.interfaces.rest.dto.CompletePatientDataRequest;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
@@ -9,7 +10,8 @@ import org.springframework.stereotype.Component;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -23,93 +25,357 @@ import java.util.Locale;
 public class ExcelPatientFormParser {
 
     /**
-     * Parse the first sheet of the given Excel stream into a CreatePatientResource.
-     * Throws IllegalArgumentException with a clear message when a required field is not found.
+     * Parse the first sheet of the given Excel stream into a CompletePatientDataRequest.
+     * This method extracts patient data and any legal responsibles found in the Excel.
      */
-    public CreatePatientResource parse(InputStream in) {
+    public CompletePatientDataRequest parseComplete(InputStream in) {
+        System.out.println("Starting Excel parsing...");
         try (Workbook wb = new XSSFWorkbook(in)) {
+            System.out.println("Excel workbook loaded successfully");
             Sheet sheet = wb.getSheetAt(0);
+            System.out.println("Sheet loaded, name: " + sheet.getSheetName());
 
-            // --- Names ---
-            String paternal     = findByLabel(sheet, "Apellido Paterno");
-            String maternal     = findByLabel(sheet, "Apellido Materno");
-            String firstNames   = findByLabel(sheet, "Nombres Completos");
-
-            // --- Phone (pick the first non-blank among common labels) ---
-            String phone        = firstNonBlank(
-                    findByLabel(sheet, "Fijo Casa/Celular"),
-                    findByLabel(sheet, "Fono 1"),
-                    findByLabel(sheet, "Celular")
-            );
-
-            // --- Birth date ---
-            LocalDate birthDate = readDate(sheet, "Fecha de Nacimiento");
-
-            // --- Document Type (map to domain enum) ---
-            String docTypeStr   = firstNonBlank(
-                    findByLabel(sheet, "Documento de Identidad"),
-                    findByLabel(sheet, "Documento"),
-                    findByLabel(sheet, "DNI"),
-                    findByLabel(sheet, "D.N.I.")
-            );
-            DocumentType documentType = normalizeDocType(docTypeStr);
-
-            // --- Document Number (robust extraction + normalization) ---
-            // 1) From the same row as "Documento de Identidad", first cell to the right with >= 6 digits.
-            String docNumberRaw = findNumberInRowOfLabel(sheet, "Documento de Identidad");
-
-            // 2) If masked or empty, try scanning near tokens anywhere.
-            if (isBlank(docNumberRaw) || looksMasked(docNumberRaw)) {
-
-                docNumberRaw = findNumberNearLabelAnywhere(sheet, "DNI", "D.N.I.", "Documento");
-            }
-
-            // 3) As a last fallback, try a later row sometimes titled "RUC y/o DNI".
-            if (isBlank(docNumberRaw) || looksMasked(docNumberRaw)) {
-
-                String fromRucRow = findByLabel(sheet, "RUC y/o DNI");
-                if (!isBlank(fromRucRow) && !looksMasked(fromRucRow)) {
-                    docNumberRaw = fromRucRow;
-                }
-            }
-
-            String documentNumber = digitsOnly(docNumberRaw);
-
-            // If you REQUIRE a real document number, keep this validation:
-            if (isBlank(documentNumber) || documentNumber.length() < 6) {
-                throw new IllegalArgumentException("document number required");
-            }
-
-            // --- Receipt Type as String (normalize but keep free-form if unknown) ---
-            String receiptRaw   = firstNonBlank(
-                    findByLabel(sheet, "Tipo de Comprobante"),
-                    findByLabel(sheet, "Comprobante")
-            );
-            String receiptType  = normalizeReceiptString(receiptRaw); // "INVOICE" / "BILL" / original
-
-            // --- Validate minimal required fields (tune as needed) ---
-            if (isBlank(firstNames))   throw new IllegalArgumentException("first names required");
-            if (isBlank(paternal))     throw new IllegalArgumentException("paternal surname required");
-            if (birthDate == null)     throw new IllegalArgumentException("birth date required");
-            if (isBlank(phone))        phone = ""; // optional: allow empty phone
-
-            return new CreatePatientResource(
-                    firstNames,
-                    paternal,
-                    maternal,
-                    documentType,
-                    documentNumber,
-                    phone,
-                    birthDate,
-                    receiptType
+            // Parse patient data
+            System.out.println("Parsing patient data...");
+            CreatePatientCommand patientCommand = parsePatientData(sheet);
+            System.out.println("Patient data parsed successfully");
+            
+            // Parse legal responsibles
+            System.out.println("Parsing legal responsibles...");
+            List<CompletePatientDataRequest.LegalResponsibleData> legalResponsibles = parseLegalResponsibles(sheet);
+            System.out.println("Legal responsibles parsed: " + legalResponsibles.size());
+            
+            // Convert to CompletePatientDataRequest
+            return new CompletePatientDataRequest(
+                patientCommand.firstNames(),
+                patientCommand.paternalSurname(),
+                patientCommand.maternalSurname(),
+                patientCommand.documentType().toString(),
+                patientCommand.documentNumber(),
+                patientCommand.phone(),
+                patientCommand.email(),
+                patientCommand.birthDate(),
+                patientCommand.birthPlace(),
+                patientCommand.ageFirstAppointment(),
+                patientCommand.ageCurrent(),
+                patientCommand.gender(),
+                patientCommand.maritalStatus(),
+                patientCommand.religion(),
+                patientCommand.educationLevel(),
+                patientCommand.occupation(),
+                patientCommand.currentEducationalInstitution(),
+                patientCommand.currentAddress(),
+                patientCommand.district(),
+                patientCommand.province(),
+                patientCommand.region(),
+                patientCommand.country(),
+                patientCommand.medicalDiagnosis(),
+                patientCommand.problemIdentified(),
+                patientCommand.additionalNotes(),
+                patientCommand.receiptType(),
+                patientCommand.businessName(),
+                patientCommand.holder(),
+                patientCommand.rucOrDni(),
+                patientCommand.billingAddress(),
+                legalResponsibles,
+                null // therapists - not implemented yet
             );
 
         } catch (IllegalArgumentException iae) {
-            // Bubble up clean business messages (Spring-WS will emit them as SOAP Faults)
             throw iae;
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse Excel patient form", e);
         }
+    }
+
+    /**
+     * Parse the first sheet of the given Excel stream into a CreatePatientCommand.
+     * Throws IllegalArgumentException with a clear message when a required field is not found.
+     */
+    public CreatePatientCommand parse(InputStream in) {
+        try (Workbook wb = new XSSFWorkbook(in)) {
+            Sheet sheet = wb.getSheetAt(0);
+            return parsePatientData(sheet);
+        } catch (IllegalArgumentException iae) {
+            throw iae;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Excel patient form", e);
+        }
+    }
+
+    /**
+     * Parse patient data from a sheet
+     */
+    private CreatePatientCommand parsePatientData(Sheet sheet) {
+        System.out.println("Starting patient data parsing...");
+        // --- Names ---
+        System.out.println("Looking for names...");
+        String paternal     = findByLabel(sheet, "Apellido Paterno");
+        System.out.println("Paternal surname: " + paternal);
+        String maternal     = findByLabel(sheet, "Apellido Materno");
+        System.out.println("Maternal surname: " + maternal);
+        String firstNames   = findByLabel(sheet, "Nombres Completos");
+        System.out.println("First names: " + firstNames);
+
+        // --- Phone (pick the first non-blank among common labels) ---
+        String phone        = firstNonBlank(
+                findByLabel(sheet, "Fijo Casa/Celular"),
+                findByLabel(sheet, "Fono 1"),
+                findByLabel(sheet, "Celular")
+        );
+
+        // --- Birth date ---
+        LocalDate birthDate = readDate(sheet, "Fecha de Nacimiento");
+
+        // --- Document Type (map to domain enum) ---
+        String docTypeStr   = firstNonBlank(
+                findByLabel(sheet, "Documento de Identidad"),
+                findByLabel(sheet, "Documento"),
+                findByLabel(sheet, "DNI"),
+                findByLabel(sheet, "D.N.I.")
+        );
+        DocumentType documentType = normalizeDocType(docTypeStr);
+
+        // --- Document Number (robust extraction + normalization) ---
+        // 1) From the same row as "Documento de Identidad", first cell to the right with >= 6 digits.
+        String docNumberRaw = findNumberInRowOfLabel(sheet, "Documento de Identidad");
+
+        // 2) If masked or empty, try scanning near tokens anywhere.
+        if (isBlank(docNumberRaw) || looksMasked(docNumberRaw)) {
+            docNumberRaw = findNumberNearLabelAnywhere(sheet, "DNI", "D.N.I.", "Documento");
+        }
+
+        // 3) As a last fallback, try a later row sometimes titled "RUC y/o DNI".
+        if (isBlank(docNumberRaw) || looksMasked(docNumberRaw)) {
+            String fromRucRow = findByLabel(sheet, "RUC y/o DNI");
+            if (!isBlank(fromRucRow) && !looksMasked(fromRucRow)) {
+                docNumberRaw = fromRucRow;
+            }
+        }
+
+        String documentNumber = digitsOnly(docNumberRaw);
+
+        // If you REQUIRE a real document number, keep this validation:
+        if (isBlank(documentNumber) || documentNumber.length() < 6) {
+            throw new IllegalArgumentException("document number required");
+        }
+
+        // --- Receipt Type as String (normalize but keep free-form if unknown) ---
+        String receiptRaw   = firstNonBlank(
+                findByLabel(sheet, "Tipo de Comprobante"),
+                findByLabel(sheet, "Comprobante")
+        );
+        String receiptType  = normalizeReceiptString(receiptRaw); // "INVOICE" / "BILL" / original
+
+        // --- Validate minimal required fields (tune as needed) ---
+        if (isBlank(firstNames))   throw new IllegalArgumentException("first names required");
+        if (isBlank(paternal))     throw new IllegalArgumentException("paternal surname required");
+        if (birthDate == null)     throw new IllegalArgumentException("birth date required");
+        if (isBlank(phone))        phone = ""; // optional: allow empty phone
+
+        return new CreatePatientCommand(
+                firstNames,
+                paternal,
+                maternal,
+                documentType,
+                documentNumber,
+                phone,
+                birthDate,
+                receiptType,
+                null, // email
+                null, // birthPlace
+                null, // ageFirstAppointment
+                null, // ageCurrent
+                null, // gender
+                null, // maritalStatus
+                null, // religion
+                null, // educationLevel
+                null, // occupation
+                null, // currentEducationalInstitution
+                null, // currentAddress
+                null, // district
+                null, // province
+                null, // region
+                null, // country
+                null, // medicalDiagnosis
+                null, // problemIdentified
+                null, // additionalNotes
+                null, // businessName
+                null, // holder
+                null, // rucOrDni
+                null  // billingAddress
+        );
+    }
+
+    /**
+     * Parse legal responsibles from a sheet
+     * Looks for common patterns like "Responsable Legal", "Apoderado", "Tutor", etc.
+     */
+    private List<CompletePatientDataRequest.LegalResponsibleData> parseLegalResponsibles(Sheet sheet) {
+        List<CompletePatientDataRequest.LegalResponsibleData> responsibles = new ArrayList<>();
+        
+        // Look for common legal responsible labels
+        String[] responsibleLabels = {
+            "Responsable Legal", "Apoderado", "Tutor", "Representante Legal",
+            "Responsable", "Padre", "Madre", "Familiar Responsable"
+        };
+        
+        for (String label : responsibleLabels) {
+            CompletePatientDataRequest.LegalResponsibleData responsible = parseLegalResponsibleByLabel(sheet, label);
+            if (responsible != null) {
+                responsibles.add(responsible);
+            }
+        }
+        
+        return responsibles;
+    }
+    
+    /**
+     * Parse a single legal responsible by looking for a specific label
+     */
+    private CompletePatientDataRequest.LegalResponsibleData parseLegalResponsibleByLabel(Sheet sheet, String label) {
+        String target = norm(label);
+        
+        for (Row row : sheet) {
+            int lastCell = Math.max(0, row.getLastCellNum());
+            for (int i = 0; i < Math.min(3, lastCell); i++) {
+                Cell c = row.getCell(i);
+                if (c == null) continue;
+                String txt = asString(c);
+                if (txt != null && norm(txt).contains(target)) {
+                    // Found the label, now extract data from this row and possibly next rows
+                    return extractLegalResponsibleData(sheet, row, i);
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Extract legal responsible data from a specific row and column
+     */
+    private CompletePatientDataRequest.LegalResponsibleData extractLegalResponsibleData(Sheet sheet, Row labelRow, int labelCol) {
+        try {
+            // Look for data in the same row, to the right of the label
+            String firstNames = findByLabelInRow(labelRow, labelCol, "Nombres", "Nombre");
+            String paternalSurname = findByLabelInRow(labelRow, labelCol, "Apellido Paterno", "Apellido Paterno");
+            String maternalSurname = findByLabelInRow(labelRow, labelCol, "Apellido Materno", "Apellido Materno");
+            String documentType = findByLabelInRow(labelRow, labelCol, "Documento", "DNI", "D.N.I.");
+            String documentNumber = findNumberInRow(labelRow, labelCol);
+            String phone = findByLabelInRow(labelRow, labelCol, "Teléfono", "Fono", "Celular");
+            String email = findByLabelInRow(labelRow, labelCol, "Email", "Correo");
+            LocalDate birthDate = findDateInRow(labelRow, labelCol, "Fecha de Nacimiento", "Nacimiento");
+            String relationship = findByLabelInRow(labelRow, labelCol, "Relación", "Parentesco", "Vínculo");
+            String occupation = findByLabelInRow(labelRow, labelCol, "Ocupación", "Profesión", "Trabajo");
+            String address = findByLabelInRow(labelRow, labelCol, "Dirección", "Domicilio");
+            
+            // If we found at least a name, create the responsible
+            if (!isBlank(firstNames) || !isBlank(paternalSurname)) {
+                return new CompletePatientDataRequest.LegalResponsibleData(
+                    firstNames != null ? firstNames : "",
+                    paternalSurname != null ? paternalSurname : "",
+                    maternalSurname != null ? maternalSurname : "",
+                    documentType != null ? documentType : "DNI",
+                    documentNumber != null ? documentNumber : "",
+                    phone != null ? phone : "",
+                    email != null ? email : "",
+                    birthDate,
+                    relationship != null ? relationship : "Responsable Legal",
+                    occupation != null ? occupation : "",
+                    address != null ? address : ""
+                );
+            }
+        } catch (Exception e) {
+            // Log error but don't fail the entire process
+            System.err.println("Error parsing legal responsible: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Find a value by label in the same row, starting from a specific column
+     */
+    private String findByLabelInRow(Row row, int startCol, String... labels) {
+        int lastCell = Math.max(0, row.getLastCellNum());
+        
+        for (int i = startCol; i < lastCell; i++) {
+            Cell c = row.getCell(i);
+            if (c == null) continue;
+            String txt = asString(c);
+            if (txt == null) continue;
+            
+            String normalizedTxt = norm(txt);
+            for (String label : labels) {
+                if (normalizedTxt.contains(norm(label))) {
+                    // Found the label, return the next non-empty cell
+                    for (int j = i + 1; j < lastCell; j++) {
+                        String val = asString(row.getCell(j));
+                        if (val != null && !val.isBlank()) {
+                            return val.trim();
+                        }
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Find a number in the same row, starting from a specific column
+     */
+    private String findNumberInRow(Row row, int startCol) {
+        int lastCell = Math.max(0, row.getLastCellNum());
+        
+        for (int i = startCol; i < lastCell; i++) {
+            String val = asString(row.getCell(i));
+            if (val != null && val.replaceAll("\\D+", "").length() >= 6) {
+                return val.trim();
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Find a date in the same row, starting from a specific column
+     */
+    private LocalDate findDateInRow(Row row, int startCol, String... labels) {
+        int lastCell = Math.max(0, row.getLastCellNum());
+        
+        for (int i = startCol; i < lastCell; i++) {
+            Cell c = row.getCell(i);
+            if (c == null) continue;
+            String txt = asString(c);
+            if (txt == null) continue;
+            
+            String normalizedTxt = norm(txt);
+            for (String label : labels) {
+                if (normalizedTxt.contains(norm(label))) {
+                    // Found the label, look for date in next cells
+                    for (int j = i + 1; j < lastCell; j++) {
+                        Cell dateCell = row.getCell(j);
+                        if (dateCell != null) {
+                            if (dateCell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(dateCell)) {
+                                return dateCell.getDateCellValue().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+                            } else {
+                                String s = asString(dateCell);
+                                if (s != null && !s.isBlank()) {
+                                    try { 
+                                        return LocalDate.parse(s.trim()); 
+                                    } catch (Exception ignored) {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return null;
     }
 
     // ========================= Helpers =========================
