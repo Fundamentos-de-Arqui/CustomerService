@@ -5,15 +5,14 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jms.annotation.EnableJms;
-import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
+// Removed JMS listener configuration since this service only produces messages
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 
 @Configuration
-@EnableJms
+// Removed @EnableJms since this service only produces messages, doesn't consume
 public class ActiveMQConfig {
 
     @Value("${spring.activemq.broker-url}")
@@ -54,12 +53,5 @@ public class ActiveMQConfig {
         return template;
     }
 
-    @Bean
-    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(MessageConverter jacksonJmsMessageConverter) {
-        DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
-        factory.setConnectionFactory(connectionFactory());
-        factory.setMessageConverter(jacksonJmsMessageConverter);
-        factory.setConcurrency("1-5");
-        return factory;
-    }
+    // Removed JMS listener container factory since this service only produces messages
 }
