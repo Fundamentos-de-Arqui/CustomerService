@@ -46,6 +46,16 @@ public class ExcelPatientFormParser {
             System.out.println("Legal responsibles parsed: " + legalResponsibles.size());
             
             // Convert to CompletePatientDataRequest
+            // Log email information for verification
+            System.out.println("=== EMAIL EXTRACTION SUMMARY ===");
+            System.out.println("Patient Email: " + patientCommand.email());
+            System.out.println("Legal Responsibles Count: " + legalResponsibles.size());
+            for (int i = 0; i < legalResponsibles.size(); i++) {
+                var responsible = legalResponsibles.get(i);
+                System.out.println("Legal Responsible " + (i+1) + " Email: " + responsible.email());
+            }
+            System.out.println("=================================");
+
             return new CompletePatientDataRequest(
                 patientCommand.firstNames(),
                 patientCommand.paternalSurname(),
@@ -124,6 +134,16 @@ public class ExcelPatientFormParser {
                 findByLabel(sheet, "Celular")
         );
 
+        // --- Email (pick the first non-blank among common labels) ---
+        String email        = firstNonBlank(
+                findByLabel(sheet, "Correo electrónico"),
+                findByLabel(sheet, "Email"),
+                findByLabel(sheet, "Correo"),
+                findByLabel(sheet, "E-mail"),
+                findByLabel(sheet, "Correo Electrónico")
+        );
+        System.out.println("Email extracted from Excel: " + email);
+
         // --- Birth date ---
         LocalDate birthDate = readDate(sheet, "Fecha de Nacimiento");
 
@@ -182,7 +202,7 @@ public class ExcelPatientFormParser {
                 phone,
                 birthDate,
                 receiptType,
-                null, // email
+                email, // email extracted from Excel
                 null, // birthPlace
                 null, // ageFirstAppointment
                 null, // ageCurrent
@@ -264,7 +284,8 @@ public class ExcelPatientFormParser {
             String documentType = findByLabelInRow(labelRow, labelCol, "Documento", "DNI", "D.N.I.");
             String documentNumber = findNumberInRow(labelRow, labelCol);
             String phone = findByLabelInRow(labelRow, labelCol, "Teléfono", "Fono", "Celular");
-            String email = findByLabelInRow(labelRow, labelCol, "Email", "Correo");
+            String email = findByLabelInRow(labelRow, labelCol, "Email", "Correo", "E-mail", "Correo electrónico", "Correo Electrónico");
+            System.out.println("Legal responsible email extracted: " + email);
             LocalDate birthDate = findDateInRow(labelRow, labelCol, "Fecha de Nacimiento", "Nacimiento");
             String relationship = findByLabelInRow(labelRow, labelCol, "Relación", "Parentesco", "Vínculo");
             String occupation = findByLabelInRow(labelRow, labelCol, "Ocupación", "Profesión", "Trabajo");
