@@ -187,6 +187,167 @@ public class ExcelPatientFormParser {
         );
         String receiptType  = normalizeReceiptString(receiptRaw); // "INVOICE" / "BILL" / original
 
+        // --- Additional fields extraction ---
+        System.out.println("Extracting additional patient fields...");
+        String birthPlace = firstNonBlank(
+                findByLabel(sheet, "Lugar de Nacimiento"),
+                findByLabel(sheet, "Lugar Nacimiento"),
+                findByLabel(sheet, "Nació en")
+        );
+        System.out.println("Birth place: " + birthPlace);
+        
+        String ageFirstAppointmentStr = firstNonBlank(
+                findByLabel(sheet, "Edad Primera Cita"),
+                findByLabel(sheet, "Edad al Inicio"),
+                findByLabel(sheet, "Edad Inicial")
+        );
+        Integer ageFirstAppointment = parseIntegerFromString(ageFirstAppointmentStr);
+        System.out.println("Age first appointment: " + ageFirstAppointment);
+        
+        String ageCurrentStr = firstNonBlank(
+                findByLabel(sheet, "Edad Actual"),
+                findByLabel(sheet, "Edad"),
+                findByLabel(sheet, "Años")
+        );
+        Integer ageCurrent = parseIntegerFromString(ageCurrentStr);
+        System.out.println("Age current: " + ageCurrent);
+        
+        String gender = firstNonBlank(
+                findByLabel(sheet, "Sexo"),
+                findByLabel(sheet, "Género"),
+                findByLabel(sheet, "M/F")
+        );
+        System.out.println("Gender: " + gender);
+        
+        String maritalStatus = firstNonBlank(
+                findByLabel(sheet, "Estado Civil"),
+                findByLabel(sheet, "Est. Civil"),
+                findByLabel(sheet, "Soltero/Casado")
+        );
+        System.out.println("Marital status: " + maritalStatus);
+        
+        String religion = firstNonBlank(
+                findByLabel(sheet, "Religión"),
+                findByLabel(sheet, "Creencia"),
+                findByLabel(sheet, "Fe")
+        );
+        
+        String educationLevel = firstNonBlank(
+                findByLabel(sheet, "Nivel Educativo"),
+                findByLabel(sheet, "Grado de Instrucción"),
+                findByLabel(sheet, "Educación"),
+                findByLabel(sheet, "Estudios")
+        );
+        
+        String occupation = firstNonBlank(
+                findByLabel(sheet, "Ocupación"),
+                findByLabel(sheet, "Profesión"),
+                findByLabel(sheet, "Trabajo"),
+                findByLabel(sheet, "Oficio")
+        );
+        
+        String currentEducationalInstitution = firstNonBlank(
+                findByLabel(sheet, "Institución Educativa"),
+                findByLabel(sheet, "Colegio"),
+                findByLabel(sheet, "Universidad"),
+                findByLabel(sheet, "Centro de Estudios")
+        );
+        
+        String currentAddress = firstNonBlank(
+                findByLabel(sheet, "Dirección Actual"),
+                findByLabel(sheet, "Dirección"),
+                findByLabel(sheet, "Domicilio"),
+                findByLabel(sheet, "Residencia")
+        );
+        
+        String district = firstNonBlank(
+                findByLabel(sheet, "Distrito"),
+                findByLabel(sheet, "Dist.")
+        );
+        
+        String province = firstNonBlank(
+                findByLabel(sheet, "Provincia"),
+                findByLabel(sheet, "Prov.")
+        );
+        
+        String region = firstNonBlank(
+                findByLabel(sheet, "Región"),
+                findByLabel(sheet, "Departamento"),
+                findByLabel(sheet, "Reg.")
+        );
+        
+        String country = firstNonBlank(
+                findByLabel(sheet, "País"),
+                findByLabel(sheet, "Nacionalidad")
+        );
+        
+        String medicalDiagnosis = firstNonBlank(
+                findByLabel(sheet, "Diagnóstico Médico"),
+                findByLabel(sheet, "Diagnóstico"),
+                findByLabel(sheet, "Dx Médico")
+        );
+        
+        String problemIdentified = firstNonBlank(
+                findByLabel(sheet, "Problema Identificado"),
+                findByLabel(sheet, "Motivo de Consulta"),
+                findByLabel(sheet, "Problema Principal")
+        );
+        
+        String additionalNotes = firstNonBlank(
+                findByLabel(sheet, "Observaciones"),
+                findByLabel(sheet, "Notas Adicionales"),
+                findByLabel(sheet, "Comentarios"),
+                findByLabel(sheet, "Obs.")
+        );
+        
+        String businessName = firstNonBlank(
+                findByLabel(sheet, "Razón Social"),
+                findByLabel(sheet, "Empresa"),
+                findByLabel(sheet, "Nombre Empresa")
+        );
+        
+        String holder = firstNonBlank(
+                findByLabel(sheet, "Titular"),
+                findByLabel(sheet, "Responsable de Pago"),
+                findByLabel(sheet, "Pagador")
+        );
+        
+        String rucOrDni = firstNonBlank(
+                findByLabel(sheet, "RUC y/o DNI"),
+                findByLabel(sheet, "RUC/DNI"),
+                findByLabel(sheet, "RUC")
+        );
+        
+        String billingAddress = firstNonBlank(
+                findByLabel(sheet, "Dirección de Facturación"),
+                findByLabel(sheet, "Dir. Facturación"),
+                findByLabel(sheet, "Dirección Fiscal")
+        );
+
+        System.out.println("=== EXTRACTED FIELDS SUMMARY ===");
+        System.out.println("Birth Place: " + birthPlace);
+        System.out.println("Age First Appointment: " + ageFirstAppointment);
+        System.out.println("Age Current: " + ageCurrent);
+        System.out.println("Gender: " + gender);
+        System.out.println("Marital Status: " + maritalStatus);
+        System.out.println("Religion: " + religion);
+        System.out.println("Education Level: " + educationLevel);
+        System.out.println("Occupation: " + occupation);
+        System.out.println("Current Educational Institution: " + currentEducationalInstitution);
+        System.out.println("Current Address: " + currentAddress);
+        System.out.println("District: " + district);
+        System.out.println("Province: " + province);
+        System.out.println("Region: " + region);
+        System.out.println("Country: " + country);
+        System.out.println("Medical Diagnosis: " + medicalDiagnosis);
+        System.out.println("Problem Identified: " + problemIdentified);
+        System.out.println("Additional Notes: " + additionalNotes);
+        System.out.println("Business Name: " + businessName);
+        System.out.println("Holder: " + holder);
+        System.out.println("RUC or DNI: " + rucOrDni);
+        System.out.println("Billing Address: " + billingAddress);
+        System.out.println("=================================");
+
         // --- Validate minimal required fields (tune as needed) ---
         if (isBlank(firstNames))   throw new IllegalArgumentException("first names required");
         if (isBlank(paternal))     throw new IllegalArgumentException("paternal surname required");
@@ -203,27 +364,27 @@ public class ExcelPatientFormParser {
                 birthDate,
                 receiptType,
                 email, // email extracted from Excel
-                null, // birthPlace
-                null, // ageFirstAppointment
-                null, // ageCurrent
-                null, // gender
-                null, // maritalStatus
-                null, // religion
-                null, // educationLevel
-                null, // occupation
-                null, // currentEducationalInstitution
-                null, // currentAddress
-                null, // district
-                null, // province
-                null, // region
-                null, // country
-                null, // medicalDiagnosis
-                null, // problemIdentified
-                null, // additionalNotes
-                null, // businessName
-                null, // holder
-                null, // rucOrDni
-                null  // billingAddress
+                birthPlace,
+                ageFirstAppointment,
+                ageCurrent,
+                gender,
+                maritalStatus,
+                religion,
+                educationLevel,
+                occupation,
+                currentEducationalInstitution,
+                currentAddress,
+                district,
+                province,
+                region,
+                country,
+                medicalDiagnosis,
+                problemIdentified,
+                additionalNotes,
+                businessName,
+                holder,
+                rucOrDni,
+                billingAddress
         );
     }
 
@@ -410,6 +571,20 @@ public class ExcelPatientFormParser {
         if (s == null) return null;
         String d = s.replaceAll("\\D+", ""); // keep only digits 0-9
         return d.isEmpty() ? null : d;
+    }
+
+    /**
+     * Parse an Integer from a String, returning null if parsing fails
+     */
+    private Integer parseIntegerFromString(String s) {
+        if (isBlank(s)) return null;
+        try {
+            // Extract digits only, then parse
+            String digitsOnly = s.replaceAll("\\D+", "");
+            return digitsOnly.isEmpty() ? null : Integer.parseInt(digitsOnly);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
 

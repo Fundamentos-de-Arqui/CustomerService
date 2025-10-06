@@ -32,10 +32,25 @@ $patientData = @{
     firstNames = "John"
     paternalSurname = "Doe"
     maternalSurname = "Smith"
-    documentType = "DNI"
     documentNumber = "87654321"
-    phone = "+51-987-654-321"
+    documentType = "DNI"
+    phone = "+987654321"
+    email = "john.doe@email.com"
+    birthPlace = "Lima, Peru"
     birthDate = "1990-01-01"
+    firstAppointmentAge = 30
+    currentAge = 33
+    gender = "MALE"
+    maritalStatus = "SINGLE"
+    currentAddress = "Av. Principal 123"
+    district = "Miraflores"
+    province = "Lima"
+    region = "Lima"
+    country = "Peru"
+    religion = "CATHOLIC"
+    educationLevel = "UNIVERSITY"
+    occupation = "Software Engineer"
+    currentEducationalInstitution = "Universidad Nacional de Ingenieria"
     receiptType = "INVOICE"
 } | ConvertTo-Json
 
